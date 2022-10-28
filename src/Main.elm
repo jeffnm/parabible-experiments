@@ -2,7 +2,7 @@ module Main exposing (main)
 
 import Browser
 import Html exposing (..)
-import Html.Attributes exposing (value)
+import Html.Attributes exposing (style, value)
 import Html.Events exposing (onClick)
 import Http
 import Json.Decode as JD
@@ -50,10 +50,10 @@ getText : Cmd Msg
 getText =
     let
         url1 =
-            ""
+            "https://dev.parabible.com/api/v2/text?modules=NET&reference=Genesis+1"
 
         url2 =
-            ""
+            "https://dev.parabible.com/api/v2/text?modules=ETCBC+BHSA%2CNET%2CNestle1904&reference=Genesis+1"
     in
     Http.get
         { url = url2
@@ -129,6 +129,6 @@ view model =
 
         Loaded docs ->
             div []
-                [ div [] [ text "Results - just dumping the stringified json here for now" ]
+                [ div [ style "margin-bottom" "10px" ] [ text "Results - just dumping the text and rid from each parallel" ]
                 , div [] (List.map (\d -> div [] [ text (d.text ++ String.fromInt d.rid) ]) docs)
                 ]
