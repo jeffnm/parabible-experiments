@@ -5348,14 +5348,25 @@ var $elm$core$Task$perform = F2(
 				A2($elm$core$Task$map, toMessage, task)));
 	});
 var $elm$browser$Browser$element = _Browser_element;
-var $author$project$Main$NoResults = function (a) {
-	return {$: 'NoResults', a: a};
-};
+var $author$project$Main$NoResults = F2(
+	function (a, b) {
+		return {$: 'NoResults', a: a, b: b};
+	});
+var $author$project$Main$Translation = F3(
+	function (name, moduleId, shortName) {
+		return {moduleId: moduleId, name: name, shortName: shortName};
+	});
 var $elm$core$Platform$Cmd$batch = _Platform_batch;
 var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
 var $author$project$Main$init = function (_v0) {
+	var translations = _List_fromArray(
+		[
+			A3($author$project$Main$Translation, 'UST', 2, 'UST'),
+			A3($author$project$Main$Translation, 'ETCBC+BHSA', 10, 'ETCBC+BHSA'),
+			A3($author$project$Main$Translation, 'NET', 5, 'NET')
+		]);
 	return _Utils_Tuple2(
-		$author$project$Main$NoResults($elm$core$Maybe$Nothing),
+		A2($author$project$Main$NoResults, translations, $elm$core$Maybe$Nothing),
 		$elm$core$Platform$Cmd$none);
 };
 var $elm$core$Platform$Sub$batch = _Platform_batch;
@@ -5363,10 +5374,13 @@ var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
 var $author$project$Main$subscriptions = function (_v0) {
 	return $elm$core$Platform$Sub$none;
 };
-var $author$project$Main$GettingDocs = {$: 'GettingDocs'};
-var $author$project$Main$Loaded = function (a) {
-	return {$: 'Loaded', a: a};
+var $author$project$Main$GettingDocs = function (a) {
+	return {$: 'GettingDocs', a: a};
 };
+var $author$project$Main$Loaded = F2(
+	function (a, b) {
+		return {$: 'Loaded', a: a, b: b};
+	});
 var $author$project$Main$GotText = function (a) {
 	return {$: 'GotText', a: a};
 };
@@ -6157,49 +6171,144 @@ var $elm$http$Http$get = function (r) {
 	return $elm$http$Http$request(
 		{body: $elm$http$Http$emptyBody, expect: r.expect, headers: _List_Nil, method: 'GET', timeout: $elm$core$Maybe$Nothing, tracker: $elm$core$Maybe$Nothing, url: r.url});
 };
+var $elm$core$List$intersperse = F2(
+	function (sep, xs) {
+		if (!xs.b) {
+			return _List_Nil;
+		} else {
+			var hd = xs.a;
+			var tl = xs.b;
+			var step = F2(
+				function (x, rest) {
+					return A2(
+						$elm$core$List$cons,
+						sep,
+						A2($elm$core$List$cons, x, rest));
+				});
+			var spersed = A3($elm$core$List$foldr, step, _List_Nil, tl);
+			return A2($elm$core$List$cons, hd, spersed);
+		}
+	});
 var $elm$json$Json$Decode$field = _Json_decodeField;
 var $elm$json$Json$Decode$list = _Json_decodeList;
 var $author$project$Main$Text = F4(
 	function (parallelId, moduleId, rid, text) {
 		return {moduleId: moduleId, parallelId: parallelId, rid: rid, text: text};
 	});
-var $elm$json$Json$Decode$int = _Json_decodeInt;
-var $elm$json$Json$Decode$map4 = _Json_map4;
+var $author$project$Main$EnglishText = function (a) {
+	return {$: 'EnglishText', a: a};
+};
 var $elm$json$Json$Decode$string = _Json_decodeString;
-var $author$project$Main$parallelDecoder = A5(
-	$elm$json$Json$Decode$map4,
-	$author$project$Main$Text,
-	A2($elm$json$Json$Decode$field, 'parallelId', $elm$json$Json$Decode$int),
-	A2($elm$json$Json$Decode$field, 'moduleId', $elm$json$Json$Decode$int),
-	A2($elm$json$Json$Decode$field, 'rid', $elm$json$Json$Decode$int),
-	A2($elm$json$Json$Decode$field, 'text', $elm$json$Json$Decode$string));
+var $author$project$Main$englishDecoder = A2($elm$json$Json$Decode$map, $author$project$Main$EnglishText, $elm$json$Json$Decode$string);
+var $author$project$Main$HebrewText = function (a) {
+	return {$: 'HebrewText', a: a};
+};
+var $author$project$Main$HebrewWord = F3(
+	function (wid, text, trailer) {
+		return {text: text, trailer: trailer, wid: wid};
+	});
+var $elm$json$Json$Decode$int = _Json_decodeInt;
+var $elm$json$Json$Decode$map3 = _Json_map3;
+var $author$project$Main$hebrewDecoder = A4(
+	$elm$json$Json$Decode$map3,
+	$author$project$Main$HebrewWord,
+	A2($elm$json$Json$Decode$field, 'wid', $elm$json$Json$Decode$int),
+	A2($elm$json$Json$Decode$field, 'text', $elm$json$Json$Decode$string),
+	A2($elm$json$Json$Decode$field, 'trailer', $elm$json$Json$Decode$string));
+var $author$project$Main$hebrewTextDecoder = A2(
+	$elm$json$Json$Decode$map,
+	$author$project$Main$HebrewText,
+	$elm$json$Json$Decode$list($author$project$Main$hebrewDecoder));
+var $elm$json$Json$Decode$oneOf = _Json_oneOf;
+var $NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$custom = $elm$json$Json$Decode$map2($elm$core$Basics$apR);
+var $NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required = F3(
+	function (key, valDecoder, decoder) {
+		return A2(
+			$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$custom,
+			A2($elm$json$Json$Decode$field, key, valDecoder),
+			decoder);
+	});
+var $author$project$Main$parallelDecoder2 = A3(
+	$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+	'text',
+	$elm$json$Json$Decode$oneOf(
+		_List_fromArray(
+			[$author$project$Main$hebrewTextDecoder, $author$project$Main$englishDecoder])),
+	A3(
+		$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+		'rid',
+		$elm$json$Json$Decode$int,
+		A3(
+			$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+			'moduleId',
+			$elm$json$Json$Decode$int,
+			A3(
+				$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+				'parallelId',
+				$elm$json$Json$Decode$int,
+				$elm$json$Json$Decode$succeed($author$project$Main$Text)))));
 var $author$project$Main$matchTextDecoder = A2(
 	$elm$json$Json$Decode$field,
 	'matchingText',
-	$elm$json$Json$Decode$list($author$project$Main$parallelDecoder));
-var $author$project$Main$getText = function () {
+	$elm$json$Json$Decode$list($author$project$Main$parallelDecoder2));
+var $author$project$Main$getText = function (translations) {
 	var url2 = 'https://dev.parabible.com/api/v2/text?modules=ETCBC+BHSA%2CNET%2CNestle1904&reference=Genesis+1';
 	var url1 = 'https://dev.parabible.com/api/v2/text?modules=NET&reference=Genesis+1';
+	var reference = 'Genesis+1';
+	var modules = A3(
+		$elm$core$List$foldl,
+		$elm$core$Basics$append,
+		'',
+		A2(
+			$elm$core$List$intersperse,
+			'%2C',
+			A2(
+				$elm$core$List$map,
+				function (trans) {
+					return trans.shortName;
+				},
+				translations)));
+	var url3 = 'https://dev.parabible.com/api/v2/text?modules=' + (modules + ('&reference=' + reference));
 	return $elm$http$Http$get(
 		{
 			expect: A2($elm$http$Http$expectJson, $author$project$Main$GotText, $author$project$Main$matchTextDecoder),
-			url: url2
+			url: url3
 		});
-}();
+};
+var $author$project$Main$getTranslationsFromModel = function (model) {
+	switch (model.$) {
+		case 'NoResults':
+			var t = model.a;
+			return t;
+		case 'GettingDocs':
+			var t = model.a;
+			return t;
+		default:
+			var t = model.a;
+			return t;
+	}
+};
+var $elm$core$Debug$log = _Debug_log;
 var $author$project$Main$update = F2(
 	function (msg, model) {
+		var translations = $author$project$Main$getTranslationsFromModel(model);
 		if (msg.$ === 'RequestNewDocs') {
-			return _Utils_Tuple2($author$project$Main$GettingDocs, $author$project$Main$getText);
+			return _Utils_Tuple2(
+				$author$project$Main$GettingDocs(translations),
+				$author$project$Main$getText(translations));
 		} else {
 			if (msg.a.$ === 'Ok') {
 				var value = msg.a.a;
+				var r = A2($elm$core$Debug$log, 'results', value);
 				return _Utils_Tuple2(
-					$author$project$Main$Loaded(value),
+					A2($author$project$Main$Loaded, translations, value),
 					$elm$core$Platform$Cmd$none);
 			} else {
 				var error = msg.a.a;
 				return _Utils_Tuple2(
-					$author$project$Main$NoResults(
+					A2(
+						$author$project$Main$NoResults,
+						translations,
 						$elm$core$Maybe$Just(error)),
 					$elm$core$Platform$Cmd$none);
 			}
@@ -6208,6 +6317,15 @@ var $author$project$Main$update = F2(
 var $author$project$Main$RequestNewDocs = {$: 'RequestNewDocs'};
 var $elm$html$Html$button = _VirtualDom_node('button');
 var $elm$html$Html$div = _VirtualDom_node('div');
+var $author$project$Main$getTranslationsNamesAsString = function (translations) {
+	if (translations.b) {
+		var x = translations.a;
+		var xs = translations.b;
+		return ($elm$core$List$length(xs) > 0) ? (x.name + (', ' + $author$project$Main$getTranslationsNamesAsString(xs))) : x.name;
+	} else {
+		return '';
+	}
+};
 var $elm$virtual_dom$VirtualDom$Normal = function (a) {
 	return {$: 'Normal', a: a};
 };
@@ -6225,14 +6343,93 @@ var $elm$html$Html$Events$onClick = function (msg) {
 		'click',
 		$elm$json$Json$Decode$succeed(msg));
 };
+var $elm$html$Html$span = _VirtualDom_node('span');
 var $elm$virtual_dom$VirtualDom$style = _VirtualDom_style;
 var $elm$html$Html$Attributes$style = $elm$virtual_dom$VirtualDom$style;
 var $elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
 var $elm$html$Html$text = $elm$virtual_dom$VirtualDom$text;
+var $author$project$Main$getTextActual = function (textactual) {
+	if (textactual.$ === 'HebrewText') {
+		var hw = textactual.a;
+		return 'list of hebrew words';
+	} else {
+		var s = textactual.a;
+		return s;
+	}
+};
+var $elm$core$List$filter = F2(
+	function (isGood, list) {
+		return A3(
+			$elm$core$List$foldr,
+			F2(
+				function (x, xs) {
+					return isGood(x) ? A2($elm$core$List$cons, x, xs) : xs;
+				}),
+			_List_Nil,
+			list);
+	});
+var $author$project$Main$getTextByModuleId = F2(
+	function (id, texts) {
+		return A2(
+			$elm$core$List$filter,
+			function (t) {
+				return _Utils_eq(t.moduleId, id);
+			},
+			texts);
+	});
+var $author$project$Main$viewDisplayTexts = F2(
+	function (translations, texts) {
+		var w = A2(
+			$elm$core$Debug$log,
+			'string percent for width',
+			function (width) {
+				return width + '%';
+			}(
+				A2(
+					$elm$core$Debug$log,
+					'division for width',
+					$elm$core$String$fromInt(
+						function (n) {
+							return n - 1;
+						}(
+							(100 / $elm$core$List$length(translations)) | 0)))));
+		return A2(
+			$elm$core$List$map,
+			function (trans) {
+				return A2(
+					$elm$html$Html$div,
+					_List_fromArray(
+						[
+							A2($elm$html$Html$Attributes$style, 'width', w),
+							A2($elm$html$Html$Attributes$style, 'display', 'block'),
+							A2($elm$html$Html$Attributes$style, 'float', 'left')
+						]),
+					A2(
+						$elm$core$List$map,
+						function (t) {
+							return A2(
+								$elm$html$Html$span,
+								_List_Nil,
+								_List_fromArray(
+									[
+										$elm$html$Html$text(
+										$author$project$Main$getTextActual(t.text))
+									]));
+						},
+						trans));
+			},
+			A2(
+				$elm$core$List$map,
+				function (trans) {
+					return A2($author$project$Main$getTextByModuleId, trans.moduleId, texts);
+				},
+				translations));
+	});
 var $author$project$Main$view = function (model) {
 	switch (model.$) {
 		case 'NoResults':
-			var err = model.a;
+			var translations = model.a;
+			var err = model.b;
 			var errorstring = function () {
 				if (err.$ === 'Nothing') {
 					return '';
@@ -6268,6 +6465,21 @@ var $author$project$Main$view = function (model) {
 								$elm$html$Html$text('No Results' + errorstring)
 							])),
 						A2(
+						$elm$html$Html$div,
+						_List_Nil,
+						A2(
+							$elm$core$List$map,
+							function (trans) {
+								return A2(
+									$elm$html$Html$span,
+									_List_Nil,
+									_List_fromArray(
+										[
+											$elm$html$Html$text(trans.name + ' ')
+										]));
+							},
+							translations)),
+						A2(
 						$elm$html$Html$button,
 						_List_fromArray(
 							[
@@ -6279,15 +6491,18 @@ var $author$project$Main$view = function (model) {
 							]))
 					]));
 		case 'GettingDocs':
+			var translations = model.a;
 			return A2(
 				$elm$html$Html$div,
 				_List_Nil,
 				_List_fromArray(
 					[
-						$elm$html$Html$text('Getting Results...')
+						$elm$html$Html$text(
+						'Getting Results from' + $author$project$Main$getTranslationsNamesAsString(translations))
 					]));
 		default:
-			var docs = model.a;
+			var translations = model.a;
+			var docs = model.b;
 			return A2(
 				$elm$html$Html$div,
 				_List_Nil,
@@ -6301,26 +6516,23 @@ var $author$project$Main$view = function (model) {
 							]),
 						_List_fromArray(
 							[
-								$elm$html$Html$text('Results - just dumping the text and rid from each parallel')
+								$elm$html$Html$text('Results - just dumping the text from each parallel, in columns based on how many translations are in the results.')
+							])),
+						A2(
+						$elm$html$Html$div,
+						_List_fromArray(
+							[
+								A2($elm$html$Html$Attributes$style, 'margin-bottom', '10px')
+							]),
+						_List_fromArray(
+							[
+								$elm$html$Html$text(
+								$author$project$Main$getTranslationsNamesAsString(translations))
 							])),
 						A2(
 						$elm$html$Html$div,
 						_List_Nil,
-						A2(
-							$elm$core$List$map,
-							function (d) {
-								return A2(
-									$elm$html$Html$div,
-									_List_Nil,
-									_List_fromArray(
-										[
-											$elm$html$Html$text(
-											_Utils_ap(
-												d.text,
-												$elm$core$String$fromInt(d.rid)))
-										]));
-							},
-							docs))
+						A2($author$project$Main$viewDisplayTexts, translations, docs))
 					]));
 	}
 };
