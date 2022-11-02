@@ -19,6 +19,30 @@ main =
         }
 
 
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    Sub.none
+
+
+init : () -> ( Model, Cmd Msg )
+init _ =
+    let
+        translations =
+            [ Translation "UST" 2 "UST"
+            , Translation "ETCBC+BHSA" 10 "ETCBC+BHSA"
+            , Translation "NET" 5 "NET"
+            ]
+
+        model =
+            NoResults translations Nothing
+    in
+    ( model, Cmd.none )
+
+
+
+-- TYPES
+
+
 type Model
     = NoResults (List Translation) (Maybe Http.Error)
     | GettingDocs (List Translation)
@@ -29,13 +53,8 @@ type alias Text =
     { parallelId : Int
     , moduleId : Int
     , rid : Int
-    , text : TextActual
+    , text : String
     }
-
-
-type TextActual
-    = EnglishText String
-    | HebrewText (List HebrewWord)
 
 
 type alias Translation =
@@ -52,24 +71,6 @@ type alias HebrewWord =
     }
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    let
-        translations =
-            --     [ Translation "ETCBC+BHSA" 10 "ETCBC+BHSA"
-            --     ]
-            [ Translation "UST" 2 "UST"
-            , Translation "ETCBC+BHSA" 10 "ETCBC+BHSA"
-            , Translation "NET" 5 "NET"
-            ]
-    in
-    ( NoResults
-        translations
-        Nothing
-    , Cmd.none
-    )
-
-
 type Msg
     = RequestNewDocs
     | GotText (Result Http.Error (List Text))
@@ -78,73 +79,79 @@ type Msg
 getText : List Translation -> Cmd Msg
 getText translations =
     let
-        url1 =
-            "https://dev.parabible.com/api/v2/text?modules=NET&reference=Genesis+1"
-
-        url2 =
-            "https://dev.parabible.com/api/v2/text?modules=ETCBC+BHSA%2CNET%2CNestle1904&reference=Genesis+1"
-
         modules =
             translations |> List.map (\trans -> trans.shortName) |> List.intersperse "%2C" |> List.foldl (++) ""
 
         reference =
             "Genesis+1"
 
-        url3 =
+        url =
             "https://dev.parabible.com/api/v2/text?modules=" ++ modules ++ "&reference=" ++ reference
     in
     Http.get
-        { url = url3
+        { url = url
         , expect = Http.expectJson GotText matchTextDecoder
         }
 
 
+hebrewModules =
+    [ 10 ]
+
+
+
+-- DECODERS
+
+
 matchTextDecoder : JD.Decoder (List Text)
 matchTextDecoder =
-    JD.field "matchingText" (JD.list parallelDecoder2)
+    -- basic decoder that matches root field and then calls another decoder on the value of that field
+    JD.field "matchingText" (JD.list parallelDecoder)
 
 
 
--- parallelDecoder : JD.Decoder Text
--- parallelDecoder =
---     JD.map4 Text
---         (JD.field "parallelId" JD.int)
---         (JD.field "moduleId" JD.int)
---         (JD.field "rid" JD.int)
---         (JD.field "text" JD.string)
+-- parallelDecoder2 : JD.Decoder Text
+-- parallelDecoder2 =
+--     JD.succeed Text
+--         |> required "parallelId" JD.int
+--         |> required "moduleId" JD.int
+--         |> required "rid" JD.int
+--         |> required "text" (JD.oneOf [ hebrewTextDecoder, englishDecoder ]
+-- This would work if the value of the hebrew text wasn't a string.
+-- I haven't figured out a way to decode an additional string of JSON mid-decode
+-- One possible solution would be to attempt to decode the hebrew after the initial decode,
+-- but that seems against the spirit of Elm's json decoding
+-- https://korban.net/posts/elm/2021-05-10-generating-json-decoders-with-json-decoders/
+-- has an example of decoding from a string straight into the view, so that's what I ended up doing.
+-- I removed all supporting code for this example, but kept it here as a reminder that Json.Decode.oneOf exists and would be useful.
 
 
-parallelDecoder2 : JD.Decoder Text
-parallelDecoder2 =
+parallelDecoder : JD.Decoder Text
+parallelDecoder =
+    -- this decoder uses the Pipeline model we could do this with the more basic one too
     JD.succeed Text
         |> required "parallelId" JD.int
         |> required "moduleId" JD.int
         |> required "rid" JD.int
-        -- This would work if the value of the hebrew text wasn't a string.
-        -- I haven't figured out a way to decode an additional string mid-decode
-        -- One possible solution would be to attempt to decode the hebrew after the initial decode,
-        -- but that seems against the spirit of Elm's json decoding
-        |> required "text" (JD.oneOf [ hebrewTextDecoder, englishDecoder ])
+        |> required "text" JD.string
 
 
-englishDecoder : JD.Decoder TextActual
-englishDecoder =
-    JD.map EnglishText
-        JD.string
-
-
-hebrewTextDecoder : JD.Decoder TextActual
+hebrewTextDecoder : JD.Decoder (List HebrewWord)
 hebrewTextDecoder =
-    JD.map HebrewText
-        (JD.list hebrewDecoder)
+    -- another example of using the list decoder and another decoder for the elements in the list
+    JD.list hebrewDecoder
 
 
 hebrewDecoder : JD.Decoder HebrewWord
 hebrewDecoder =
+    -- Here's an example of decoding a value that has 3 keys using one of the map functions
     JD.map3 HebrewWord
         (JD.field "wid" JD.int)
         (JD.field "text" JD.string)
         (JD.field "trailer" JD.string)
+
+
+
+-- UPDATE
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -158,14 +165,14 @@ update msg model =
             ( GettingDocs translations, getText translations )
 
         GotText (Ok value) ->
-            let
-                r =
-                    Debug.log "results" value
-            in
             ( Loaded translations value, Cmd.none )
 
         GotText (Err error) ->
             ( NoResults translations (Just error), Cmd.none )
+
+
+
+-- HELPER FUNCTIONS
 
 
 getTranslationsFromModel : Model -> List Translation
@@ -179,91 +186,6 @@ getTranslationsFromModel model =
 
         Loaded t _ ->
             t
-
-
-subscriptions : Model -> Sub Msg
-subscriptions _ =
-    Sub.none
-
-
-view : Model -> Html Msg
-view model =
-    case model of
-        NoResults translations err ->
-            let
-                errorstring =
-                    case err of
-                        Nothing ->
-                            ""
-
-                        Just error ->
-                            case error of
-                                Http.BadUrl str ->
-                                    " - Bad Url " ++ str
-
-                                Http.Timeout ->
-                                    " - There was a timeout"
-
-                                Http.NetworkError ->
-                                    " - There was a network error"
-
-                                Http.BadStatus int ->
-                                    " - There was a bad status code: " ++ String.fromInt int
-
-                                Http.BadBody body ->
-                                    " - There was a bad body response: " ++ body
-            in
-            div []
-                [ div [] [ text ("No Results" ++ errorstring) ]
-                , div [] (List.map (\trans -> span [] [ text (trans.name ++ " ") ]) translations)
-                , button [ onClick RequestNewDocs ] [ text "Request Docs" ]
-                ]
-
-        GettingDocs translations ->
-            div []
-                [ text ("Getting Results from" ++ getTranslationsNamesAsString translations) ]
-
-        Loaded translations docs ->
-            div []
-                [ div [ style "margin-bottom" "10px" ] [ text "Results - just dumping the text from each parallel, in columns based on how many translations are in the results." ]
-                , div [ style "margin-bottom" "10px" ] [ text (getTranslationsNamesAsString translations) ]
-
-                -- , div [] (List.map (\d -> div [] [ text (d.text ++ String.fromInt d.rid) ]) docs)
-                , div [] (viewDisplayTexts translations docs)
-                ]
-
-
-viewDisplayTexts : List Translation -> List Text -> List (Html Msg)
-viewDisplayTexts translations texts =
-    let
-        w =
-            100
-                // List.length translations
-                |> (\n -> n - 1)
-                |> String.fromInt
-                |> Debug.log "division for width"
-                |> (\width -> width ++ "%")
-                |> Debug.log "string percent for width"
-    in
-    translations
-        |> List.map
-            (\trans ->
-                getTextByModuleId trans.moduleId texts
-            )
-        |> List.map
-            (\trans ->
-                div [ style "width" w, style "display" "block", style "float" "left" ] (List.map (\t -> span [] [ text (getTextActual t.text) ]) trans)
-            )
-
-
-getTextActual : TextActual -> String
-getTextActual textactual =
-    case textactual of
-        HebrewText hw ->
-            "list of hebrew words"
-
-        EnglishText s ->
-            s
 
 
 getTextByModuleId : Int -> List Text -> List Text
@@ -283,3 +205,117 @@ getTranslationsNamesAsString translations =
 
         [] ->
             ""
+
+
+
+-- VIEW
+
+
+view : Model -> Html Msg
+view model =
+    case model of
+        NoResults translations err ->
+            viewNoResults translations err
+
+        GettingDocs translations ->
+            div [ style "margin" "1em" ]
+                [ text ("Getting Results from" ++ getTranslationsNamesAsString translations) ]
+
+        Loaded translations docs ->
+            div []
+                [ div [ style "margin" "1em", style "margin-bottom" "10px" ] [ text "Results - just dumping the text from each parallel, in columns based on how many translations are in the results." ]
+                , div [ style "margin" "1em", style "margin-bottom" "10px" ] [ text (getTranslationsNamesAsString translations) ]
+                , div [] (viewDisplayTexts translations docs)
+                ]
+
+
+viewNoResults : List Translation -> Maybe Http.Error -> Html Msg
+viewNoResults translations error =
+    let
+        errorstring =
+            case error of
+                Nothing ->
+                    ""
+
+                Just err ->
+                    case err of
+                        Http.BadUrl str ->
+                            " - Bad Url " ++ str
+
+                        Http.Timeout ->
+                            " - There was a timeout"
+
+                        Http.NetworkError ->
+                            " - There was a network error"
+
+                        Http.BadStatus int ->
+                            " - There was a bad status code: " ++ String.fromInt int
+
+                        Http.BadBody body ->
+                            " - There was a bad body response: " ++ body
+    in
+    div [ style "margin" "1em" ]
+        [ div [] [ text ("No Results" ++ errorstring) ]
+        , div [] (List.map (\trans -> span [] [ text (trans.name ++ " ") ]) translations)
+        , button [ onClick RequestNewDocs ] [ text "Request Docs" ]
+        ]
+
+
+viewDisplayTexts : List Translation -> List Text -> List (Html Msg)
+viewDisplayTexts translations texts =
+    let
+        numberoftranslations =
+            List.length translations
+
+        columnwidth =
+            viewTextColumnWidthAttribute numberoftranslations
+    in
+    translations
+        |> List.map
+            (\trans ->
+                getTextByModuleId trans.moduleId texts
+            )
+        |> List.map (viewText columnwidth)
+
+
+viewTextColumnWidthAttribute : Int -> String
+viewTextColumnWidthAttribute numberofcolumns =
+    (100 // numberofcolumns)
+        |> (\n -> n - 1)
+        |> String.fromInt
+        |> (\width -> width ++ "%")
+
+
+viewText : String -> List Text -> Html msg
+viewText columnwidth textsegment =
+    let
+        outerDiv =
+            div [ style "width" columnwidth, style "display" "block", style "margin" "0.5%", style "float" "left" ]
+    in
+    textsegment
+        |> List.map
+            (\t ->
+                if List.member t.moduleId hebrewModules then
+                    viewHebrewText t
+
+                else
+                    span [] [ text t.text ]
+            )
+        |> outerDiv
+
+
+viewHebrewText : Text -> Html msg
+viewHebrewText t =
+    case JD.decodeString hebrewTextDecoder t.text of
+        Err e ->
+            span [] [ text "Failed to load" ]
+                |> Debug.log "Hebrew Decoder errored"
+
+        Ok result ->
+            span [] (viewHebrewWord result)
+
+
+viewHebrewWord : List HebrewWord -> List (Html msg)
+viewHebrewWord words =
+    words
+        |> List.map (\w -> span [] [ text (w.text ++ w.trailer) ])
