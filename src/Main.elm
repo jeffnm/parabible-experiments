@@ -2,7 +2,7 @@ module Main exposing (main)
 
 import Browser
 import Html exposing (..)
-import Html.Attributes exposing (style, value)
+import Html.Attributes exposing (dir, style, value)
 import Html.Events exposing (onClick)
 import Http
 import Json.Decode as JD
@@ -175,6 +175,31 @@ update msg model =
 -- HELPER FUNCTIONS
 
 
+ridToString : Int -> String
+ridToString rid =
+    let
+        dropLeadingZeros : Char -> String -> String
+        dropLeadingZeros c acc =
+            if c == '0' && (String.left 1 acc /= "0" && String.left 1 acc == "") then
+                acc
+
+            else
+                String.append acc (String.fromChar c)
+
+        chapter =
+            String.fromInt rid
+                |> String.dropRight 3
+                |> String.right 3
+                |> String.foldl dropLeadingZeros ""
+
+        verse =
+            String.fromInt rid
+                |> String.right 3
+                |> String.foldl dropLeadingZeros ""
+    in
+    chapter ++ ":" ++ verse ++ " "
+
+
 getTranslationsFromModel : Model -> List Translation
 getTranslationsFromModel model =
     case model of
@@ -299,7 +324,7 @@ viewText columnwidth textsegment =
                     viewHebrewText t
 
                 else
-                    span [] [ text t.text ]
+                    span [] [ text (ridToString t.rid ++ t.text ++ " ") ]
             )
         |> outerDiv
 
@@ -312,10 +337,10 @@ viewHebrewText t =
                 |> Debug.log "Hebrew Decoder errored"
 
         Ok result ->
-            span [] (viewHebrewWord result)
+            span [ dir "rtl" ] (span [] [ text (ridToString t.rid) ] :: viewHebrewWord result)
 
 
 viewHebrewWord : List HebrewWord -> List (Html msg)
 viewHebrewWord words =
     words
-        |> List.map (\w -> span [] [ text (w.text ++ w.trailer) ])
+        |> List.map (\w -> span [] [ text (w.trailer ++ w.text) ])
