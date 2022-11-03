@@ -2,11 +2,12 @@ module Main exposing (main)
 
 import Browser
 import Html exposing (..)
-import Html.Attributes exposing (dir, style, value)
-import Html.Events exposing (onClick)
+import Html.Attributes exposing (dir, multiple, selected, style, value)
+import Html.Events exposing (onClick, onInput)
 import Http
 import Json.Decode as JD
 import Json.Decode.Pipeline exposing (required, resolve)
+import MultiSelect
 
 
 main : Program () Model Msg
@@ -24,6 +25,56 @@ subscriptions _ =
     Sub.none
 
 
+allBooks =
+    [ "Genesis"
+    , "Exodus"
+    , "Leviticus"
+    , "Numbers"
+    , "Deuteronomy"
+    , "Joshua"
+    , "Judges"
+    , "Ruth"
+    , "1 Samuel"
+    , "2 Samuel"
+    , "1 Kings"
+    , "2 Kings"
+    , "1 Chronicles"
+    , "2 Chronicles"
+    , "Ezra"
+    , "Nehemiah"
+    , "Esther"
+    , "Job"
+    , "Psalms"
+    , "Proverbs"
+    , "Ecclesiastes"
+    , "Song of Songs"
+    , "Isaiah"
+    , "Jeremiah"
+    , "Lamentations"
+    , "Ezekiel"
+    , "Daniel"
+    , "Hosea"
+    , "Joel"
+    , "Amos"
+    , "Obadiah"
+    , "Jonah"
+    , "Micah"
+    , "Nahum"
+    , "Habakkuk"
+    , "Zephaniah"
+    , "Haggai"
+    , "Zechariah"
+    , "Malachi"
+    ]
+
+
+allTranslations =
+    [ Translation "UST" 2 "UST"
+    , Translation "ETCBC+BHSA" 10 "ETCBC+BHSA"
+    , Translation "NET" 5 "NET"
+    ]
+
+
 init : () -> ( Model, Cmd Msg )
 init _ =
     let
@@ -33,8 +84,11 @@ init _ =
             , Translation "NET" 5 "NET"
             ]
 
+        reference =
+            Reference "Genesis" 1
+
         model =
-            NoResults translations Nothing
+            NoResults translations reference Nothing
     in
     ( model, Cmd.none )
 
@@ -44,9 +98,9 @@ init _ =
 
 
 type Model
-    = NoResults (List Translation) (Maybe Http.Error)
-    | GettingDocs (List Translation)
-    | Loaded (List Translation) (List Text)
+    = NoResults (List Translation) Reference (Maybe Http.Error)
+    | GettingDocs (List Translation) Reference
+    | Loaded (List Translation) Reference (List Text)
 
 
 type alias Text =
@@ -74,16 +128,22 @@ type alias HebrewWord =
 type Msg
     = RequestNewDocs
     | GotText (Result Http.Error (List Text))
+    | SelectedTranslationsChanged (List String)
+    | SelectedBookChanged String
 
 
-getText : List Translation -> Cmd Msg
-getText translations =
+type alias Reference =
+    { book : String, chapter : Int }
+
+
+getText : List Translation -> Reference -> Cmd Msg
+getText translations ref =
     let
         modules =
             translations |> List.map (\trans -> trans.shortName) |> List.intersperse "%2C" |> List.foldl (++) ""
 
         reference =
-            "Genesis+1"
+            ref.book ++ String.fromInt ref.chapter
 
         url =
             "https://dev.parabible.com/api/v2/text?modules=" ++ modules ++ "&reference=" ++ reference
@@ -159,16 +219,46 @@ update msg model =
     let
         translations =
             getTranslationsFromModel model
+
+        reference =
+            getReferenceFromModel model
     in
     case msg of
         RequestNewDocs ->
-            ( GettingDocs translations, getText translations )
+            ( GettingDocs translations reference, getText translations reference )
 
         GotText (Ok value) ->
-            ( Loaded translations value, Cmd.none )
+            ( Loaded translations reference value, Cmd.none )
 
         GotText (Err error) ->
-            ( NoResults translations (Just error), Cmd.none )
+            ( NoResults translations reference (Just error), Cmd.none )
+
+        SelectedTranslationsChanged selections ->
+            let
+                newtranslations =
+                    allTranslations
+                        |> List.filter (\t -> List.member t.shortName selections)
+            in
+            case model of
+                NoResults _ _ _ ->
+                    ( NoResults newtranslations reference Nothing, Cmd.none )
+
+                GettingDocs _ _ ->
+                    ( GettingDocs newtranslations reference, getText newtranslations reference )
+
+                Loaded _ _ docs ->
+                    ( Loaded newtranslations reference docs, Cmd.none )
+
+        SelectedBookChanged selectedbook ->
+            case model of
+                NoResults _ _ _ ->
+                    ( NoResults translations { reference | book = selectedbook } Nothing, Cmd.none )
+
+                GettingDocs _ _ ->
+                    ( GettingDocs translations { reference | book = selectedbook }, getText translations { reference | book = selectedbook } )
+
+                Loaded _ _ docs ->
+                    ( Loaded translations { reference | book = selectedbook } docs, Cmd.none )
 
 
 
@@ -203,14 +293,27 @@ ridToString rid =
 getTranslationsFromModel : Model -> List Translation
 getTranslationsFromModel model =
     case model of
-        NoResults t _ ->
+        NoResults t _ _ ->
             t
 
-        GettingDocs t ->
+        GettingDocs t _ ->
             t
 
-        Loaded t _ ->
+        Loaded t _ _ ->
             t
+
+
+getReferenceFromModel : Model -> Reference
+getReferenceFromModel model =
+    case model of
+        NoResults _ r _ ->
+            r
+
+        GettingDocs _ r ->
+            r
+
+        Loaded _ r _ ->
+            r
 
 
 getTextByModuleId : Int -> List Text -> List Text
@@ -239,23 +342,63 @@ getTranslationsNamesAsString translations =
 view : Model -> Html Msg
 view model =
     case model of
-        NoResults translations err ->
-            viewNoResults translations err
+        NoResults translations ref err ->
+            viewNoResults ref translations err
 
-        GettingDocs translations ->
+        GettingDocs translations ref ->
             div [ style "margin" "1em" ]
-                [ text ("Getting Results from" ++ getTranslationsNamesAsString translations) ]
+                [ viewTranslationSelectComponent translations
+                , viewBookSelector ref.book allBooks
+                , text ("Getting Results from" ++ getTranslationsNamesAsString translations)
+                ]
 
-        Loaded translations docs ->
+        Loaded translations ref docs ->
             div []
                 [ div [ style "margin" "1em", style "margin-bottom" "10px" ] [ text "Results - just dumping the text from each parallel, in columns based on how many translations are in the results." ]
                 , div [ style "margin" "1em", style "margin-bottom" "10px" ] [ text (getTranslationsNamesAsString translations) ]
+                , viewBookSelector ref.book allBooks
+                , viewTranslationSelectComponent translations
                 , div [] (viewDisplayTexts translations docs)
                 ]
 
 
-viewNoResults : List Translation -> Maybe Http.Error -> Html Msg
-viewNoResults translations error =
+viewTranslationSelectComponent : List Translation -> Html Msg
+viewTranslationSelectComponent selectedTranslations =
+    div []
+        [ div [] [ viewTranslationsMultiSelector selectedTranslations ]
+        , div [] [ button [ onClick RequestNewDocs ] [ text "Request Docs" ] ]
+        ]
+
+
+viewTranslationsMultiSelector : List Translation -> Html Msg
+viewTranslationsMultiSelector selectedTranslations =
+    let
+        items =
+            List.map (\at -> MultiSelect.Item at.shortName at.name True) allTranslations
+    in
+    List.map (\t -> t.name) selectedTranslations
+        |> MultiSelect.multiSelect (MultiSelect.Options items SelectedTranslationsChanged) []
+
+
+viewBookSelector : String -> List String -> Html Msg
+viewBookSelector currentbook books =
+    books
+        |> List.map
+            (\b ->
+                option
+                    [ if b == currentbook then
+                        selected True
+
+                      else
+                        selected False
+                    ]
+                    [ text b ]
+            )
+        |> select [ onInput SelectedBookChanged ]
+
+
+viewNoResults : Reference -> List Translation -> Maybe Http.Error -> Html Msg
+viewNoResults ref translations error =
     let
         errorstring =
             case error of
@@ -282,7 +425,8 @@ viewNoResults translations error =
     div [ style "margin" "1em" ]
         [ div [] [ text ("No Results" ++ errorstring) ]
         , div [] (List.map (\trans -> span [] [ text (trans.name ++ " ") ]) translations)
-        , button [ onClick RequestNewDocs ] [ text "Request Docs" ]
+        , viewBookSelector ref.book allBooks
+        , viewTranslationSelectComponent translations
         ]
 
 
@@ -343,4 +487,4 @@ viewHebrewText t =
 viewHebrewWord : List HebrewWord -> List (Html msg)
 viewHebrewWord words =
     words
-        |> List.map (\w -> span [] [ text (w.trailer ++ w.text) ])
+        |> List.map (\w -> span [ dir "rtl" ] [ text (w.trailer ++ w.text) ])
